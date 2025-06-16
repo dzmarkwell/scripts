@@ -1,5 +1,5 @@
 #Script to clean out all the content the Temp share and then re-create the users folders.
-#This share is mapped to VDI's and RDS sessions as T: from \\ausradio.net.au\Shared\AUS\Aquira Temp\%username%\
+#This share is mapped to VDI's and RDS sessions as T: from \\[DFSRoot]\[DFSPath]\%username%\
 #This script requires the role\function for AD module \ Powershell be installed
 # 
 # v1.00 - Denis Markwell / 16/06/2025
