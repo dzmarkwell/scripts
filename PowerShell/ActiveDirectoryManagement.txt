@@ -1,0 +1,49 @@
+#List of Computers with Last Logon
+Get-ADComputer -Filter * -Properties OperatingSystem, OperatingSystemVersion, LastLogonDate, IPv4Address, CanonicalName, Enabled, Description | Select-Object Name, OperatingSystem, OperatingSystemVersion, LastLogonDate, IPv4Address, CanonicalName, Enabled, Description | Export-Csv ("C:\Temp\ADComputerExport_"+([DateTime]::Now.ToString("yyyyMMdd-HHmmss"))+".csv") -NoTypeInformation -Encoding UTF8
+
+#List of Enabled Users (Enabled accounts only)
+Get-ADUser -LDAPFilter '(!userAccountControl:1.2.840.113556.1.4.803:=2)' | Select-Object SamAccountName, UserPrincipalName, Name, DistinguishedName | Export-Csv ("C:\Temp\ADUserExport_Enabled_"+([DateTime]::Now.ToString("yyyyMMdd-HHmmss"))+".csv") -NoTypeInformation -Encoding UTF8
+
+#Get members of a group 
+#(Change the Group name at the start of the command)
+Get-ADGroup -Identity "Updates - Corporate Laptops - Intune Windows AutoPatch" | Get-ADGroupMember | Export-Csv ("C:\Temp\ADGroupExport_"+([DateTime]::Now.ToString("yyyyMMdd-HHmmss"))+".csv")
+
+#Count of members in a group
+(Get-ADGroupMember -Identity "Updates - Workstations Corporate - OS - All (Dynamic)").Count
+
+#Add a list of Computers to a group
+$ComputerList = Get-Content .\Computers-GroupAdd-2024-12-09.txt
+$GroupName = "Updates - Corporate Laptops - Intune Windows AutoPatch"
+foreach ($ComputerName in $ComputerList) {
+    Write-Host "Adding $ComputerName to $GroupName"
+    Add-ADGroupMember -Identity $GroupName -Members "$ComputerName$" -Confirm:$false -ErrorAction Continue
+    }
+#Remove a list of computers from a group
+$ComputerList = Get-Content .\Computers-GroupRemove-2024-12-09.txt
+$GroupName = "Updates - Corporate Laptops - Intune Windows AutoPatch"
+foreach ($ComputerName in $ComputerList) {
+    Write-Host "Removing $ComputerName from $GroupName"
+    Remove-ADGroupMember -Identity $GroupName -Members "$ComputerName$" -Confirm:$false -ErrorAction Continue
+    }
+
+#Move computers to a new OU
+$ComputerList = Get-Content .\ComputersMoveOU_2024-12-09.txt
+$TargetOU = "OU=Corporate,OU=Workstations,DC=yourdomain,DC=local"
+foreach ($ComputerName in $ComputerList) {
+    Write-Host "$ComputerName moved to $TargetOU"
+    Get-ADComputer $ComputerName | Move-ADObject -TargetPath $TargetOU
+    }
+
+#Empty an AD Group and then Add all objects in an OU to the group
+#(Sort of like an active roles dynamic group)
+#(Future rewrite could include code to only remove members no longer in the OU rather then removing and then readding everything)
+$SourceOU = "OU=Corporate,OU=Workstations,DC=yourdomain,DC=local"
+$TargetGroup = "Updates - Workstations Corporate - OS - All (Dynamic)"
+#
+#Remove All existing group members
+Get-ADGroupMember -Identity $TargetGroup | ForEach-Object {Remove-ADGroupMember -Identity $TargetGroup $_ -Confirm:$false}
+#
+#Add all objects in the $SourceOU Path
+$ComputerList = Get-ADComputer -Filter * -SearchBase $SourceOU
+Add-ADGroupMember -Identity $TargetGroup -Members $ComputerList
+
